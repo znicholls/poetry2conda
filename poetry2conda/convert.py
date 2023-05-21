@@ -12,7 +12,7 @@ from poetry2conda import __version__
 
 
 def convert(
-    file: TextIO, include_dev: bool = False, extras: Optional[Iterable[str]] = None
+    file: TextIO, include_dev: bool = False, extras: Optional[Iterable[str]] = None, groups: Optional[Iterable[str]] = None,
 ) -> str:
     """ Convert a pyproject.toml file to a conda environment YAML
 
@@ -41,6 +41,10 @@ def convert(
     poetry_dependencies = poetry_config.get("dependencies", {})
     if include_dev:
         poetry_dependencies.update(poetry_config.get("dev-dependencies", {}))
+
+    for group in groups:
+        poetry_dependencies.update(poetry_config["group"][group]["dependencies"])
+
     poetry_extras = poetry_config.get("extras", {})
     # We mark the items listed in the selected extras as non-optional
     for extra in extras:
@@ -288,10 +292,13 @@ def main():
         "--extras", "-E", action="append", help="Add extra requirements",
     )
     parser.add_argument(
+        "--groups", "-G", action="append", help="Add group requirements",
+    )
+    parser.add_argument(
         "--version", action="version", version=f"%(prog)s (version {__version__})"
     )
     args = parser.parse_args()
-    converted_obj = convert(args.pyproject, include_dev=args.dev, extras=args.extras)
+    converted_obj = convert(args.pyproject, include_dev=args.dev, extras=args.extras, groups=args.groups)
     write_file(args.environment, converted_obj)
 
 
