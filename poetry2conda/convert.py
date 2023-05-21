@@ -38,6 +38,7 @@ def convert(
         extras = []
     poetry2conda_config, poetry_config = parse_pyproject_toml(file)
     env_name = poetry2conda_config["name"]
+    channels = poetry2conda_config.get("channels", [])
     poetry_dependencies = poetry_config.get("dependencies", {})
     if include_dev:
         poetry_dependencies.update(poetry_config.get("dev-dependencies", {}))
@@ -57,7 +58,7 @@ def convert(
     dependencies, pip_dependencies = collect_dependencies(
         poetry_dependencies, conda_constraints
     )
-    conda_yaml = to_yaml_string(env_name, dependencies, pip_dependencies)
+    conda_yaml = to_yaml_string(env_name, channels, dependencies, pip_dependencies)
     return conda_yaml
 
 
@@ -202,7 +203,7 @@ def collect_dependencies(
 
 
 def to_yaml_string(
-    env_name: str, dependencies: Mapping, pip_dependencies: Mapping
+    env_name: str, channels: list[str], dependencies: Mapping, pip_dependencies: Mapping
 ) -> str:
     """ Converts dependencies to a string in YAML format.
 
@@ -215,6 +216,8 @@ def to_yaml_string(
     ----------
     env_name
         Name for the conda environment.
+    channels
+        Channels to use with conda.
     dependencies
         Regular conda dependencies.
     pip_dependencies
@@ -225,6 +228,14 @@ def to_yaml_string(
     A string with an environment.yaml definition usable by conda.
 
     """
+    if channels:
+        channels_str = ["\nchannels:"]
+        for channel in channels:
+            channels_str.append(f"  - {channel}")
+
+        channels_str = "\n".join(channels_str)
+    else:
+        channels_str = ""
     deps_str = []
     for name, version in dependencies.items():
         version = version or ""
@@ -247,7 +258,7 @@ def to_yaml_string(
 # the pyproject.toml file and then use poetry2conda again to update this file.
 # Alternatively, stop using (ana)conda.
 ###############################################################################
-name: {env_name}
+name: {env_name}{channels_str}
 dependencies:
 {deps_str}
 """.lstrip()
